@@ -9,12 +9,18 @@ from aiogram.filters import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from bs4 import BeautifulSoup
 
+import os
+from dotenv import load_dotenv
+
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-# Замените на ваш токен от @BotFather
-BOT_TOKEN = "YOUR_BOT_TOKEN_HERE"
+# Загрузка переменных окружения
+load_dotenv()
+
+# Токен бота от @BotFather
+BOT_TOKEN = os.getenv("BOT_TOKEN", "6907852914:AAEElYjSSP5KuxPl4lrucI5kT2ihES3lkRw")
 
 # Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN)
