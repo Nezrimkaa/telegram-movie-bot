@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎬 Что посмотреть? - Видеоплеер</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            color: #888;
+            font-size: 14px;
+        }
+        
+        .player-container {
+            width: 100%;
+            max-width: 800px;
+            background: #0f0f0f;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+        
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+        }
+        
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        .movie-info {
+            padding: 20px;
+        }
+        
+        .movie-title {
+            font-size: 20px;
+            margin-bottom: 10px;
+        }
+        
+        .search-form {
+            display: flex;
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .search-input {
+            flex: 1;
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            background: #2a2a3e;
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        .search-input::placeholder {
+            color: #666;
+        }
+        
+        .search-btn {
+            padding: 12px 24px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .search-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .movies-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+        
+        .movie-card {
+            background: #2a2a3e;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .movie-card:hover {
+            transform: translateY(-5px);
+        }
+        
+        .movie-card img {
+            width: 100%;
+            height: 220px;
+            object-fit: cover;
+        }
+        
+        .movie-card-info {
+            padding: 12px;
+        }
+        
+        .movie-card-title {
+            font-size: 14px;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .movie-card-rating {
+            font-size: 12px;
+            color: #ffd700;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #888;
+        }
+        
+        .error {
+            background: #ff4444;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🎬 Что посмотреть?</h1>
+        <p>Ваш персональный гид в мире кино</p>
+    </div>
+    
+    <div class="player-container">
+        <div class="video-wrapper">
+            <iframe 
+                id="videoPlayer" 
+                src="" 
+                allowfullscreen 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            ></iframe>
+        </div>
+        <div class="movie-info">
+            <h2 class="movie-title" id="movieTitle">Выберите фильм для просмотра</h2>
+            <div class="search-form">
+                <input 
+                    type="text" 
+                    class="search-input" 
+                    id="searchInput" 
+                    placeholder="Введите название фильма..."
+                >
+                <button class="search-btn" onclick="searchMovie()">Найти</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="movies-grid" id="moviesGrid">
+        <!-- Популярные фильмы будут загружены здесь -->
+    </div>
+    
+    <script>
+        // Инициализация Telegram WebApp
+        const tg = window.Telegram.WebApp;
+        tg.ready();
+        tg.expand();
+        
+        // Получаем параметры из URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const movieParam = urlParams.get('movie');
+        
+        // Популярные фильмы для быстрого доступа
+        const popularMovies = [
+            { title: 'Побег из Шоушенка', year: 1994, rating: 9.3 },
+            { title: 'Крёстный отец', year: 1972, rating: 9.2 },
+            { title: 'Тёмный рыцарь', year: 2008, rating: 9.0 },
+            { title: '1+1', year: 2011, rating: 8.5 },
+            { title: 'Начало', year: 2010, rating: 8.8 },
+            { title: 'Интерстеллар', year: 2014, rating: 8.6 },
+            { title: 'Матрица', year: 1999, rating: 8.7 },
+            { title: 'Зелёная миля', year: 1999, rating: 8.6 },
+        ];
+        
+        // Загрузка фильма из параметров
+        if (movieParam) {
+            const movieTitle = decodeURIComponent(movieParam.replace(/\+/g, ' '));
+            loadMovie(movieTitle);
+        }
+        
+        // Отображение популярных фильмов
+        function renderPopularMovies() {
+            const grid = document.getElementById('moviesGrid');
+            grid.innerHTML = popularMovies.map(movie => `
+                <div class="movie-card" onclick="loadMovie('${movie.title}')">
+                    <div style="height: 220px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center;">
+                        <span style="font-size: 48px;">🎬</span>
+                    </div>
+                    <div class="movie-card-info">
+                        <div class="movie-card-title">${movie.title}</div>
+                        <div class="movie-card-rating">⭐ ${movie.rating} | ${movie.year}</div>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Загрузка фильма в плеер
+        function loadMovie(title) {
+            const player = document.getElementById('videoPlayer');
+            const titleEl = document.getElementById('movieTitle');
+            
+            titleEl.textContent = title;
+            
+            // Формируем поисковый запрос для YouTube
+            const searchQuery = encodeURIComponent(title + ' full movie with subtitles');
+            player.src = `https://www.youtube.com/embed?listType=search&list=${searchQuery}`;
+            
+            // Прокрутка к плееру
+            player.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        
+        // Поиск фильма
+        function searchMovie() {
+            const input = document.getElementById('searchInput');
+            const query = input.value.trim();
+            
+            if (query) {
+                loadMovie(query);
+                input.value = '';
+            }
+        }
+        
+        // Поиск по Enter
+        document.getElementById('searchInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchMovie();
+            }
+        });
+        
+        // Инициализация
+        renderPopularMovies();
+        
+        // Сообщаем Telegram что приложение готово
+        tg.MainButton.setText('Закрыть плеер');
+        tg.MainButton.show();
+        tg.MainButton.onClick(() => {
+            tg.close();
+        });
+    </script>
+</body>
+</html>
