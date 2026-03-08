@@ -396,24 +396,39 @@ async def cmd_top(message: types.Message):
 
 @dp.message()
 async def handle_text(message: types.Message):
+    # Игнорируем команды
     if message.text.startswith('/'):
         return
+    # Игнорируем пустые сообщения
+    if not message.text or len(message.text.strip()) < 2:
+        return
+    
     search_query = message.text.lower()
     await message.answer(f"🔍 Ищу: <b>{message.text}</b>...", parse_mode="HTML")
+    
+    # Поиск по базе фильмов
     found_movies = [m for m in MOVIES_DB if search_query in m['title'].lower()]
+    
     if found_movies:
         for movie in found_movies[:5]:
             text = f"🎬 <b>{movie['title']}</b>\n📅 {movie['year']} | ⭐ {movie['rating']}\n🎭 {movie['genre']}\n\n<i>{movie['description']}</i>"
             await message.answer_photo(photo=movie.get('poster', ''), caption=text, parse_mode="HTML", reply_markup=create_movie_keyboard(movie))
     else:
-        keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔍 Найти на YouTube", url=f"https://www.youtube.com/results?search_query={search_query.replace(' ', '+')}+смотреть+бесплатно")]])
-        await message.answer(f"😔 <b>{message.text}</b> не найден.\n\nПопробуйте YouTube:", parse_mode="HTML", reply_markup=keyboard)
+        keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="🔍 Найти на YouTube", url=f"https://www.youtube.com/results?search_query={search_query.replace(' ', '+')}+смотреть+бесплатно+полный+фильм")]])
+        await message.answer(f"😔 <b>{message.text}</b> не найден в базе.\n\nПопробуйте поискать на YouTube:", parse_mode="HTML", reply_markup=keyboard)
 
 
 async def main():
     logger.info(f"🚀 Запуск бота «Что посмотреть?»...")
-    logger.info(f"📊 Фильмов: {len(MOVIES_DB)}")
+    logger.info(f"📊 Фильмов в базе: {len(MOVIES_DB)}")
     logger.info(f"💾 Бесплатные источники: RuTube, YouTube")
+    
+    # Проверка базы фильмов
+    for i, movie in enumerate(MOVIES_DB):
+        if 'title' not in movie or 'player_url' not in movie:
+            logger.error(f"Фильм {i} не имеет title или player_url!")
+    
+    logger.info("✅ База фильмов проверена")
     await dp.start_polling(bot)
 
 
