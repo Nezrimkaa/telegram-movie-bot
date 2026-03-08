@@ -3,7 +3,7 @@ import logging
 import os
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import Command
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
 from dotenv import load_dotenv
 
 # Настройка логирования
@@ -19,6 +19,29 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "6907852914:AAEElYjSSP5KuxPl4lrucI5kT2ihES3lk
 # Инициализация бота и диспетчера
 bot = Bot(token=BOT_TOKEN)
 dp = Dispatcher()
+
+# 🎬 ГЛАВНАЯ КЛАВИАТУРА С КНОПКАМИ 🎬
+def get_main_keyboard() -> ReplyKeyboardMarkup:
+    """Создание главной клавиатуры с кнопками команд"""
+    keyboard = ReplyKeyboardMarkup(
+        keyboard=[
+            [
+                KeyboardButton(text="🎬 Все фильмы"),
+                KeyboardButton(text="🔍 Поиск фильма")
+            ],
+            [
+                KeyboardButton(text="🎲 Случайный фильм"),
+                KeyboardButton(text="📊 Топ фильмов")
+            ],
+            [
+                KeyboardButton(text="🍿 Популярные"),
+                KeyboardButton(text="🆕 Новинки")
+            ]
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=False
+    )
+    return keyboard
 
 # 🔥 БАЗА ИЗ 100 ФИЛЬМОВ С БЕСПЛАТНЫМИ ПЛЕЕРАМИ 🔥
 MOVIES_DB = [
@@ -324,9 +347,9 @@ async def cmd_start(message: types.Message):
         f"🔍 /search — поиск\n"
         f"🎲 /random — случайный\n"
         f"📊 /top — топ по рейтингу\n\n"
-        f"Выберите фильм ниже! 🍿",
+        f"<b>Или нажмите на кнопку ниже!</b> 🍿",
         parse_mode="HTML",
-        reply_markup=create_movies_grid_keyboard(MOVIES_DB[:10])
+        reply_markup=get_main_keyboard()
     )
 
 
@@ -337,6 +360,83 @@ async def cmd_movies(message: types.Message):
         parse_mode="HTML",
         reply_markup=create_movies_grid_keyboard(MOVIES_DB)
     )
+
+
+# Обработчик кнопки "Все фильмы"
+@dp.message(lambda message: message.text == "🎬 Все фильмы")
+async def handle_all_movies(message: types.Message):
+    await cmd_movies(message)
+
+
+# Обработчик кнопки "Поиск фильма"
+@dp.message(lambda message: message.text == "🔍 Поиск фильма")
+async def handle_search(message: types.Message):
+    await message.answer(
+        f"🔍 <b>Поиск фильма</b>\n\n"
+        f"<b>Введите название фильма:</b>\n"
+        f"<i>Доступно: {len(MOVIES_DB)} фильмов</i>\n\n"
+        f"<i>Например: Матрица, Гарри Поттер, Шрек</i>",
+        parse_mode="HTML",
+        reply_markup=ReplyKeyboardMarkup(
+            keyboard=[[KeyboardButton(text="⬅️ Назад в меню")]],
+            resize_keyboard=True
+        )
+    )
+
+
+# Обработчик кнопки "Случайный фильм"
+@dp.message(lambda message: message.text == "🎲 Случайный фильм")
+async def handle_random(message: types.Message):
+    import random
+    movie = random.choice(MOVIES_DB)
+    text = f"🎲 <b>Случайный выбор:</b>\n\n🎬 {movie['title']}\n📅 {movie['year']} | ⭐ {movie['rating']}\n🎭 {movie['genre']}\n🌍 {movie['country']}\n\n<i>{movie['description']}</i>"
+    await message.answer_photo(
+        photo=movie.get('poster', ''),
+        caption=text,
+        parse_mode="HTML",
+        reply_markup=create_movie_keyboard(movie)
+    )
+
+
+# Обработчик кнопки "Топ фильмов"
+@dp.message(lambda message: message.text == "📊 Топ фильмов")
+async def handle_top(message: types.Message):
+    sorted_movies = sorted(MOVIES_DB, key=lambda x: float(x['rating']), reverse=True)[:10]
+    text = "📊 <b>Топ-10 по рейтингу:</b>\n\n"
+    for i, movie in enumerate(sorted_movies, 1):
+        text += f"{i}. 🎬 <b>{movie['title']}</b> — ⭐ {movie['rating']}\n"
+    text += "\n<i>Нажмите /movies чтобы увидеть все фильмы</i>"
+    await message.answer(text, parse_mode="HTML")
+
+
+# Обработчик кнопки "Популярные"
+@dp.message(lambda message: message.text == "🍿 Популярные")
+async def handle_popular(message: types.Message):
+    popular = MOVIES_DB[:20]
+    text = "🍿 <b>Популярные фильмы:</b>\n\n"
+    for i, movie in enumerate(popular[:10], 1):
+        text += f"{i}. 🎬 <b>{movie['title']}</b> ({movie['year']}) — ⭐ {movie['rating']}\n"
+    text += f"\n<i>И ещё {len(popular) - 10} фильмов в полной базе!</i>"
+    await message.answer(text, parse_mode="HTML")
+
+
+# Обработчик кнопки "Новинки"
+@dp.message(lambda message: message.text == "🆕 Новинки")
+async def handle_new(message: types.Message):
+    new_movies = [m for m in MOVIES_DB if int(m['year']) >= 2020][:10]
+    if new_movies:
+        text = "🆕 <b>Новинки (2020+):</b>\n\n"
+        for i, movie in enumerate(new_movies, 1):
+            text += f"{i}. 🎬 <b>{movie['title']}</b> ({movie['year']}) — ⭐ {movie['rating']}\n"
+        await message.answer(text, parse_mode="HTML")
+    else:
+        await message.answer("🆕 Новинки добавляются регулярно!")
+
+
+# Обработчик кнопки "Назад в меню"
+@dp.message(lambda message: message.text == "⬅️ Назад в меню")
+async def handle_back(message: types.Message):
+    await cmd_start(message)
 
 
 @dp.callback_query(lambda c: c.data.startswith("show_movie_"))
@@ -399,13 +499,16 @@ async def handle_text(message: types.Message):
     # Игнорируем команды
     if message.text.startswith('/'):
         return
+    # Игнорируем кнопки
+    if message.text in ["🎬 Все фильмы", "🔍 Поиск фильма", "🎲 Случайный фильм", "📊 Топ фильмов", "🍿 Популярные", "🆕 Новинки", "⬅️ Назад в меню"]:
+        return
     # Игнорируем пустые сообщения
     if not message.text or len(message.text.strip()) < 2:
         return
-    
+
     search_query = message.text.lower()
     await message.answer(f"🔍 Ищу: <b>{message.text}</b>...", parse_mode="HTML")
-    
+
     # Поиск по базе фильмов
     found_movies = [m for m in MOVIES_DB if search_query in m['title'].lower()]
     
